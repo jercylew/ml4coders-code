@@ -12,8 +12,8 @@
 
 import tensorflow as tf
 import numpy as np
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Dense
+from keras import Sequential
+from keras.layers import Dense
 
 l0 = Dense(units=1, input_shape=[1])
 model = Sequential([l0])

@@ -10,14 +10,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import tensorflow as tf
+
 data = tf.keras.datasets.fashion_mnist
+
+
+class MyCallback(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs={}):
+        if logs.get('accuracy') > 0.92:
+            print("\nReached 99% accuracy so cancelling training!")
+            self.model.stop_training = True
+
+
+callbacks = MyCallback()
 
 (training_images, training_labels), (test_images, test_labels) = data.load_data()
 
-training_images  = training_images / 255.0
+training_images = training_images / 255.0
 test_images = test_images / 255.0
 
-model = tf.keras.models.Sequential([tf.keras.layers.Flatten(input_shape=(28,28)),
+model = tf.keras.models.Sequential([tf.keras.layers.Flatten(input_shape=(28, 28)),
                                     tf.keras.layers.Dense(256, activation=tf.nn.relu),
                                     tf.keras.layers.Dropout(0.2),
                                     tf.keras.layers.Dense(128, activation=tf.nn.relu),
@@ -30,7 +41,7 @@ model.compile(optimizer='adam',
               loss='sparse_categorical_crossentropy',
               metrics=['accuracy'])
 
-model.fit(training_images, training_labels, epochs=20)
+model.fit(training_images, training_labels, epochs=20, callbacks=[callbacks])
 
 model.evaluate(test_images, test_labels)
 

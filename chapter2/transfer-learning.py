@@ -12,79 +12,86 @@
 import urllib.request
 import os
 import zipfile
-import random
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras import layers
-from tensorflow.keras import Model
-from tensorflow.keras.applications.inception_v3 import InceptionV3
-from tensorflow.keras.optimizers import RMSprop
-from shutil import copyfile
-
-
-data_url = "https://download.microsoft.com/download/3/E/1/3E1C3F21-ECDB-4869-8368-6DEBA77B919F/kagglecatsanddogs_3367a.zip"
-data_file_name = "catsdogs.zip"
-download_dir = 'tmp/'
-urllib.request.urlretrieve(data_url, data_file_name)
-zip_ref = zipfile.ZipFile(data_file_name, 'r')
-zip_ref.extractall(download_dir)
-zip_ref.close()
-
-print(len(os.listdir('tmp/PetImages/Cat/')))
-print(len(os.listdir('tmp/PetImages/Dog/')))
-
-
-try:
-    os.mkdir('tmp/cats-v-dogs')
-    os.mkdir('tmp/cats-v-dogs/training')
-    os.mkdir('tmp/cats-v-dogs/testing')
-    os.mkdir('tmp/cats-v-dogs/training/cats')
-    os.mkdir('tmp/cats-v-dogs/training/dogs')
-    os.mkdir('tmp/cats-v-dogs/testing/cats')
-    os.mkdir('tmp/cats-v-dogs/testing/dogs')
-except OSError:
-    pass
-
-
+from keras.preprocessing.image import ImageDataGenerator
+from keras import layers
+from keras import Model
+from keras.applications.inception_v3 import InceptionV3
+from keras.optimizers import RMSprop
 import random
 from shutil import copyfile
+from keras import callbacks
 
 
-def split_data(SOURCE, TRAINING, TESTING, SPLIT_SIZE):
+class MyCallback(callbacks.Callback):
+    def on_epoch_end(self, epoch, logs={}):
+        if logs.get('accuracy') > 0.90:
+            print("\nReached 99% accuracy so cancelling training!")
+            self.model.stop_training = True
+
+
+callback = MyCallback()
+
+
+def split_data(source, training, testing, size):
     files = []
-    for filename in os.listdir(SOURCE):
-        file = SOURCE + filename
+    for filename in os.listdir(source):
+        file = source + filename
         if os.path.getsize(file) > 0:
             files.append(filename)
         else:
             print(filename + " is zero length, so ignoring.")
 
-    training_length = int(len(files) * SPLIT_SIZE)
+    training_length = int(len(files) * size)
     testing_length = int(len(files) - training_length)
     shuffled_set = random.sample(files, len(files))
     training_set = shuffled_set[0:training_length]
     testing_set = shuffled_set[:testing_length]
 
     for filename in training_set:
-        this_file = SOURCE + filename
-        destination = TRAINING + filename
+        this_file = source + filename
+        destination = training + filename
         copyfile(this_file, destination)
 
     for filename in testing_set:
-        this_file = SOURCE + filename
-        destination = TESTING + filename
+        this_file = source + filename
+        destination = testing + filename
         copyfile(this_file, destination)
 
 
-CAT_SOURCE_DIR = "tmp/PetImages/Cat/"
-TRAINING_CATS_DIR = "tmp/cats-v-dogs/training/cats/"
-TESTING_CATS_DIR = "tmp/cats-v-dogs/testing/cats/"
-DOG_SOURCE_DIR = "tmp/PetImages/Dog/"
-TRAINING_DOGS_DIR = "tmp/cats-v-dogs/training/dogs/"
-TESTING_DOGS_DIR = "tmp/cats-v-dogs/testing/dogs/"
+if not os.path.exists("tmp/cats-v-dogs"):
+    data_url = "https://download.microsoft.com/download/3/E/1/3E1C3F21-ECDB-4869-8368-6DEBA77B919F" \
+               "/kagglecatsanddogs_5340.zip"
+    data_file_name = "catsdogs.zip"
+    download_dir = 'tmp/'
+    urllib.request.urlretrieve(data_url, data_file_name)
+    zip_ref = zipfile.ZipFile(data_file_name, 'r')
+    zip_ref.extractall(download_dir)
+    zip_ref.close()
 
-split_size = .9
-split_data(CAT_SOURCE_DIR, TRAINING_CATS_DIR, TESTING_CATS_DIR, split_size)
-split_data(DOG_SOURCE_DIR, TRAINING_DOGS_DIR, TESTING_DOGS_DIR, split_size)
+    print(len(os.listdir('tmp/PetImages/Cat/')))
+    print(len(os.listdir('tmp/PetImages/Dog/')))
+
+    try:
+        os.mkdir('tmp/cats-v-dogs')
+        os.mkdir('tmp/cats-v-dogs/training')
+        os.mkdir('tmp/cats-v-dogs/testing')
+        os.mkdir('tmp/cats-v-dogs/training/cats')
+        os.mkdir('tmp/cats-v-dogs/training/dogs')
+        os.mkdir('tmp/cats-v-dogs/testing/cats')
+        os.mkdir('tmp/cats-v-dogs/testing/dogs')
+    except OSError:
+        pass
+
+    CAT_SOURCE_DIR = "tmp/PetImages/Cat/"
+    TRAINING_CATS_DIR = "tmp/cats-v-dogs/training/cats/"
+    TESTING_CATS_DIR = "tmp/cats-v-dogs/testing/cats/"
+    DOG_SOURCE_DIR = "tmp/PetImages/Dog/"
+    TRAINING_DOGS_DIR = "tmp/cats-v-dogs/training/dogs/"
+    TESTING_DOGS_DIR = "tmp/cats-v-dogs/testing/dogs/"
+
+    split_size = .9
+    split_data(CAT_SOURCE_DIR, TRAINING_CATS_DIR, TESTING_CATS_DIR, split_size)
+    split_data(DOG_SOURCE_DIR, TRAINING_DOGS_DIR, TESTING_DOGS_DIR, split_size)
 
 # Expected output
 # 666.jpg is zero length, so ignoring
@@ -119,10 +126,11 @@ validation_generator = validation_datagen.flow_from_directory(VALIDATION_DIR,
                                                               class_mode='binary',
                                                               target_size=(150, 150))
 
-
-weights_url = "https://storage.googleapis.com/mledu-datasets/inception_v3_weights_tf_dim_ordering_tf_kernels_notop.h5"
 weights_file = "inception_v3.h5"
-urllib.request.urlretrieve(weights_url, weights_file)
+if not os.path.exists("./inception_v3.h5"):
+    weights_url = "https://storage.googleapis.com/mledu-datasets" \
+                  "/inception_v3_weights_tf_dim_ordering_tf_kernels_notop.h5"
+    urllib.request.urlretrieve(weights_url, weights_file)
 
 pre_trained_model = InceptionV3(input_shape=(150, 150, 3),
                                 include_top=False,
@@ -150,14 +158,15 @@ x = layers.Dense(1, activation='sigmoid')(x)
 
 model = Model(pre_trained_model.input, x)
 
-model.compile(optimizer=RMSprop(lr=0.0001),
+model.compile(optimizer=RMSprop(learning_rate = 0.0001),
               loss='binary_crossentropy',
-              metrics=['acc'])
+              metrics=['accuracy'])
 
-history = model.fit_generator(
+history = model.fit(
             train_generator,
             validation_data=validation_generator,
             epochs=20,
-            verbose=1)
+            verbose=1,
+            callbacks=[callback])
 
 model.save("catsdogs.h5")
