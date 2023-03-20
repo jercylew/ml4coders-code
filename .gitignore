@@ -1,0 +1,6 @@
+.DS_Store
+*.zip
+*.h5
+/.env
+/chapter2/tmp
+/chapter2/horse-or-human
